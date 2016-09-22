@@ -5,12 +5,12 @@
  */
 package com.georgikichev.emailmodule;
 
+import java.io.File;
 import jodd.mail.Email;
 import jodd.mail.EmailAddress;
 import jodd.mail.EmailAttachment;
 import jodd.mail.EmailFilter;
 import jodd.mail.EmailMessage;
-import jodd.mail.MailAddress;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -24,12 +24,19 @@ import jodd.mail.SmtpServer;
 import jodd.mail.SmtpSslServer;
 import jodd.mail.ImapSslServer;
 import javax.mail.Flags;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author 1333539
  */
 public class EmailBean extends Email {
+    private final Logger log = LoggerFactory.getLogger(getClass().getName());
+    
+    private Date date = new Date();
+    private Flags flags;
+    private String EmailFolder = "";
     
     private final String smtpServerName = "smtp.gmail.com";
     private final String imapServerName = "imap.gmail.com";
@@ -157,33 +164,12 @@ public class EmailBean extends Email {
         this.subject = subject;
     }
 
-    /**
-     *
-     * @return
-     */
-    @Override
-    public String getSubjectEncoding() {
-        return subjectEncoding;
-    }
-
-    public void setSubjectEncoding(String subjectEncoding) {
-        this.subjectEncoding = subjectEncoding;
-    }
-
     public List<EmailMessage> getMessages() {
         return messages;
     }
 
     public void setMessages(List<EmailMessage> messages) {
         this.messages = messages;
-    }
-
-    public Map<String, String> getHeaders() {
-        return headers;
-    }
-
-    public void setHeaders(Map<String, String> headers) {
-        this.headers = headers;
     }
 
     /**
@@ -206,6 +192,7 @@ public class EmailBean extends Email {
         this.sentDate = sentDate;
     }
 
+    //EQUALS METHOD NOT COMPLETE
     public boolean equals(EmailBean email) {
         //get the To and From from both emails
         MailAddress [] to1 = email.getTo();
@@ -322,14 +309,7 @@ public class EmailBean extends Email {
                    return false;
            }
        }
-       
        return true;             
-    }
-    
-    public void start()
-    {
-        send("georgiemail01@gmail.com", "georgiemail02@gmail.com", "Hi",
-                "Work please");
     }
     
     /**
@@ -339,20 +319,24 @@ public class EmailBean extends Email {
      * @param receiver
      * @param subj
      * @param message
+     * @param attach
      * @return 
     */   
     public EmailBean send(String sender, String receiver,String subj, 
-            String message)
+            String message, String attach)
     {
-        ConfigBean b = new ConfigBean(true, sender, "pass", smtpServerName);        
+        ConfigBean b = new ConfigBean();        
         //create
-        SmtpServer<SmtpSslServer> server = b.createSMTPServer();
+        SmtpServer<SmtpSslServer> server = b.createSMTPServer(smtpServerName);
         
         //create email object and add the text to it
         EmailBean email = (EmailBean)Email.create();
         email.from(sender);
         email.subject(subj);
         email.addText(message);
+        //check for attachment
+        if(!attach.isEmpty())
+            email.attach(EmailAttachment.attachment().file(attach));
         
         //create session and send email
         SendMailSession session = server.createSession();
@@ -366,13 +350,14 @@ public class EmailBean extends Email {
      * Method that when fed a receiver email, will import all new emails
      * that have been sent to this particular receiver. 
      * @param receiver
+     * @return 
     */
-    public void receive(String receiver)
+    public List<EmailBean> receive(String receiver)
     {
         //create IMAP server
         
-        ConfigBean b = new ConfigBean(false, receiver, "pass", imapServerName);
-        ImapSslServer imapServer = b.createImap();
+        ConfigBean b = new ConfigBean();
+        ImapSslServer imapServer = b.createImap(imapServerName);
         
         //create session for server
         ReceiveMailSession session = imapServer.createSession();
@@ -382,8 +367,58 @@ public class EmailBean extends Email {
         ReceivedEmail[] emails = session.receiveEmailAndMarkSeen(EmailFilter.
                 filter().flag(Flags.Flag.SEEN, false));
         
-        //loop through emails here
         session.close();
+        
+        List<EmailBean> completeEmails = mergeReceives(emails);
+        //loop through emails here
+        if (completeEmails != null)
+        {
+            
+            for (EmailBean email : completeEmails)
+            {
+                //log.info("\n\n===[" + email.getMessageNumber() + "]===");
+                //log.info("FLAG: %1$h\n", email.getFlags());
+                log.info("FROM:" + email.getFrom());
+                log.info("TO:" + email.getTo()[0]);
+                log.info("SUBJECT:" + email.getSubject());
+                log.info("PRIORITY:" + email.getPriority());
+                log.info("SENT DATE:" + email.getSentDate());
+                //log.info("RECEIVED DATE: " + email.getReceiveDate());
+                
+                List<EmailMessage> msgs = email.getAllMessages();
+                
+                log.info("email content length = " + msgs.size());
+                
+                for (EmailMessage msg : msgs)
+                {
+                    log.info("------");
+                    log.info(msg.getContent());
+                }
+                
+                List<EmailAttachment> atts = email.getAttachments();
+                if (attachments != null) {
+                    log.info("+++++");
+                    for (EmailAttachment att : atts) {
+                        log.info("name: " + att.getName());
+                        log.info("cid: " + att.getContentId());
+                        log.info("size: " + att.getSize());
+
+                        att.writeToFile(new File(b.getAttachmentFolder(),
+                                att.getName()));
+                    }
+                }
+            }
+        }
+        
+        return completeEmails;
+    }
+    
+    public List<EmailBean> mergeReceives(ReceivedEmail[] r)
+    {
+        //create list
+        List<EmailBean> emails = new ArrayList<>();
+        
+        return emails;
     }
     
     /**
@@ -394,20 +429,24 @@ public class EmailBean extends Email {
      * @param receivers
      * @param subj
      * @param text
+     * @param attach
      * @return 
     */   
     public EmailBean sendWithCC(String sender, String [] receivers, String subj,
-            String text)
+            String text, String attach)
     {
-        ConfigBean b = new ConfigBean(true, sender, "pass", smtpServerName);        
+        ConfigBean b = new ConfigBean();        
         //create
-        SmtpServer<SmtpSslServer> server = b.createSMTPServer();
+        SmtpServer<SmtpSslServer> server = b.createSMTPServer(smtpServerName);
         
         //set up email with appropriate properties, including CC
         EmailBean email = (EmailBean)Email.create();
         email.subject(subj);
         email.addText(text);
         email.cc(receivers);
+        //check for attachment
+        if(!attach.isEmpty())
+            email.attach(EmailAttachment.attachment().file(attach));
         
                 
         //send email
@@ -424,21 +463,26 @@ public class EmailBean extends Email {
      * all of the other receivers.
      * @param sender
      * @param receivers
+     * @param subj
      * @param text
+     * @param attach
      * @return 
     */   
     public EmailBean sendWithBCC(String sender, String [] receivers, String subj,
-            String text)
+            String text, String attach)
     {
-        ConfigBean b = new ConfigBean(true, sender, "pass", smtpServerName);        
+        ConfigBean b = new ConfigBean();        
         //create
-        SmtpServer<SmtpSslServer> server = b.createSMTPServer();
+        SmtpServer<SmtpSslServer> server = b.createSMTPServer(smtpServerName);
         
         //setup email with appropriate properties, including BCC
         EmailBean email = (EmailBean)Email.create();
         email.subject(subj);
         email.addText(text);
         email.bcc(receivers);
+        //check for attachment
+        if(!attach.isEmpty())
+            email.attach(EmailAttachment.attachment().file(attach));
                 
         //send email
         SendMailSession session = server.createSession();
@@ -447,39 +491,5 @@ public class EmailBean extends Email {
         session.close();
         
         return email;
-    }
-    /**
-     * Used to send an email that contains an attachment, like a picture.
-     * @param sender
-     * @param receivers
-     * @param subj
-     * @param msg
-     * @return  
-     */
-    public EmailBean sendWithAttachment(String sender, String [] receivers,
-            String subj, String msg)
-    {
-        ConfigBean b = new ConfigBean(true, sender, "pass", smtpServerName);        
-        //create
-        SmtpServer<SmtpSslServer> server = b.createSMTPServer();
-        
-        EmailBean email = (EmailBean)Email.create();
-        email.to(receivers[0]);
-        email.subject(subj);
-        email.addText(msg);
-        email.attach(EmailAttachment.attachment().file("jpg1.jpg"));
-        
-        //send email
-        SendMailSession session = server.createSession();
-        session.open();
-        session.sendMail(email);
-        session.close();
-        
-        return email;
-    }
-   
-    public void folderStructure()
-    {
-        
-    }
+    }  
 }

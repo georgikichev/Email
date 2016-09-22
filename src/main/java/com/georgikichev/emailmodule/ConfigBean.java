@@ -15,59 +15,79 @@ import jodd.mail.ImapSslServer;
  */
 public class ConfigBean {
     
-    String emailAddress;
-    String emailPassword;
-    String serverName;
+    String emailAddressSender;
+    String emailAddressReceiver;
+    String emailPasswordSender;
+    String emailPasswordReceiver;
+    String attachmentFolder;
     
-    public ConfigBean(boolean senderOrReceiver, String emailAddress,
-            String emailPassword, String serverName)
+    public ConfigBean()
     {       
-        emailAddress = this.emailAddress;
-        emailPassword = this.emailPassword;
-        serverName = this.serverName;        
+        emailAddressSender = "georgiemail1@gmain.com";
+        emailPasswordSender = "pass";       
+        emailAddressReceiver = "georgiemail2@gmain.com";
+        emailPasswordReceiver = "pass";   
+        //need to create this folder
+        attachmentFolder = "C://Attachments";
     }
     
-    public SmtpServer createSMTPServer()
+    public SmtpServer createSMTPServer(String serverName)
     {
         //create the server
         SmtpServer<SmtpSslServer> server = SmtpSslServer.create(serverName); 
                 
-        server.authenticateWith(emailAddress, emailPassword);
+        server.authenticateWith(emailAddressSender, emailPasswordSender);
         server.debug(true);
         return server;
     }
     
-    public ImapSslServer createImap()
+    public ImapSslServer createImap(String serverName)
     {
         ImapSslServer imapSslServer = new ImapSslServer(serverName,
-                 emailAddress, emailPassword);
+                 emailAddressReceiver, emailPasswordReceiver);
         
         imapSslServer.setProperty("mail.debug", "true");
         return imapSslServer;
     }
 
-    public String getEmailAddress() {
-        return emailAddress;
+    public String getEmailAddressSender() {
+        return emailAddressSender;
     }
 
-    public void setEmailAddress(String emailAddress) {
-        this.emailAddress = emailAddress;
+    public void setEmailAddressSender(String emailAddressSender) {
+        this.emailAddressSender = emailAddressSender;
     }
 
-    public String getEmailPassword() {
-        return emailPassword;
+    public String getEmailAddressReceiver() {
+        return emailAddressReceiver;
     }
 
-    public void setEmailPassword(String emailPassword) {
-        this.emailPassword = emailPassword;
+    public void setEmailAddressReceiver(String emailAddressReceiver) {
+        this.emailAddressReceiver = emailAddressReceiver;
     }
 
-    public String getServerName() {
-        return serverName;
+    public String getEmailPasswordSender() {
+        return emailPasswordSender;
     }
 
-    public void setServerName(String serverName) {
-        this.serverName = serverName;
+    public void setEmailPasswordSender(String emailPasswordSender) {
+        this.emailPasswordSender = emailPasswordSender;
+    }
+
+    public String getEmailPasswordReceiver() {
+        return emailPasswordReceiver;
+    }
+
+    public void setEmailPasswordReceiver(String emailPasswordReceiver) {
+        this.emailPasswordReceiver = emailPasswordReceiver;
+    }
+
+    public String getAttachmentFolder() {
+        return attachmentFolder;
+    }
+
+    public void setAttachmentFolder(String attachmentFolder) {
+        this.attachmentFolder = attachmentFolder;
     }
     
 }
